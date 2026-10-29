@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#f7f5e9">
+<title>90％まであと何分？｜こぐまとバッテリーの庭 試作版</title>
+<style>
+:root{--cream:#faf8ee;--paper:#fffef8;--sage:#64846a;--sage2:#a8c8a1;--ink:#3e5142;--muted:#788579;--line:#dce5d6;--gold:#e7c777}
+*{box-sizing:border-box}
+body{margin:0;background:linear-gradient(180deg,#f5f4e7,#edf3e9);font-family:system-ui,-apple-system,"Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif;color:var(--ink);min-height:100vh;padding:20px 14px 30px}
+main{max-width:440px;margin:0 auto}
+header{text-align:center;padding:10px 8px 18px}
+.kicker{font-size:12px;letter-spacing:.12em;color:var(--sage);font-weight:700}
+h1{font-size:25px;line-height:1.45;margin:7px 0 5px;color:#486b50}
+.subtitle{font-size:13px;color:var(--muted);margin:0}
+.card{background:rgba(255,254,248,.94);border:1px solid var(--line);border-radius:24px;padding:20px;box-shadow:0 8px 24px #5c765012;margin-bottom:14px}
+.bear{font-size:42px;text-align:center;line-height:1.2;margin:0 0 8px}
+.status{text-align:center;font-size:13px;color:var(--muted);margin-bottom:8px}
+.big{font-size:48px;font-weight:750;letter-spacing:-.04em;text-align:center;color:#4f8058;line-height:1.15}
+.big small{font-size:22px}
+.target{text-align:center;font-size:13px;margin:8px 0 16px;color:var(--muted)}
+.track{height:14px;background:#e9eee3;border-radius:99px;overflow:hidden}
+.fill{height:100%;width:0;background:linear-gradient(90deg,#a6cb9c,#638e68);border-radius:99px;transition:width .3s}
+.estimate{text-align:center;font-size:16px;margin:17px 0 4px}
+.estimate strong{font-size:28px;color:#4f8058}
+.note{text-align:center;font-size:12px;line-height:1.7;color:var(--muted);margin:0}
+label{display:block;font-size:13px;font-weight:650;margin:13px 0 7px}
+input{width:100%;border:1px solid #cfdcc9;background:#fffefb;border-radius:12px;padding:12px 13px;font-size:17px;color:var(--ink);outline:none}
+input:focus{border-color:var(--sage);box-shadow:0 0 0 3px #9ab99b30}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+button{border:0;border-radius:14px;padding:13px 16px;font-size:15px;font-weight:700;cursor:pointer}
+.primary{width:100%;background:#64866a;color:white;margin-top:16px}
+.secondary{background:#edf3e8;color:#4f7354;width:100%;margin-top:8px}
+.pill{display:inline-block;background:#edf4e8;color:#507754;border-radius:99px;padding:5px 10px;font-size:11px;font-weight:700;margin-bottom:8px}
+.alert{background:#fff7df;border:1px solid #f0dfaa;border-radius:14px;padding:12px;font-size:12px;line-height:1.75;color:#6d6040}
+h2{font-size:16px;margin:0 0 8px;color:#527457}
+ul{padding-left:19px;margin:8px 0 0;font-size:13px;line-height:1.9}
+footer{text-align:center;color:#829080;font-size:11px;line-height:1.8;padding:5px}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+<main>
+<header>
+  <div class="kicker">BATTERY GARDEN · PROTOTYPE</div>
+  <h1>90％まで、あと何分？</h1>
+  <p class="subtitle">小熊といっしょに、充電の目安をチェック 🌿</p>
+</header>
+
+<section class="card">
+  <div class="bear" aria-hidden="true">🐻🌱</div>
+  <div class="status" id="status">現在のバッテリー残量を入力してください</div>
+  <div class="big"><span id="shownLevel">--</span><small>%</small></div>
+  <div class="target">目標まで <strong id="remainingPct">--</strong> ポイント</div>
+  <div class="track"><div class="fill" id="fill"></div></div>
+  <div class="estimate">90％まで <strong id="time">--</strong></div>
+  <p class="note" id="confidence">充電速度をもとにした予測です</p>
+</section>
+
+<section class="card">
+  <span class="pill">かんたん設定</span>
+  <h2>いまの状態を教えてください</h2>
+  <div id="autoMessage" class="alert hidden"></div>
+  <label for="level">現在のバッテリー残量（％）</label>
+  <input id="level" type="number" min="0" max="100" step="1" value="50" inputmode="numeric">
+  <div class="row">
+    <div>
+      <label for="rate">1分で増える量（％）</label>
+      <input id="rate" type="number" min="0.1" max="10" step="0.1" value="1" inputmode="decimal">
+    </div>
+    <div>
+      <label for="target">目標残量（％）</label>
+      <input id="target" type="number" min="1" max="100" step="1" value="90" inputmode="numeric">
+    </div>
+  </div>
+  <button class="primary" id="calc">予測時間を計算する</button>
+  <button class="secondary" id="refresh">対応していれば残量を読み取る</button>
+</section>
+
+
+<section class="card">
+  <span class="pill">今回の改善ポイント</span>
+  <h2>🌿 実際の充電速度を測る</h2>
+  <p style="font-size:13px;line-height:1.8;color:var(--muted);margin:0 0 12px">
+    充電ケーブルをつないだ状態で測定を始め、5〜10分ほど待ってから終了します。残量の増え方から、90％までの時間を予測します。
+  </p>
+  <div class="row">
+    <div>
+      <label for="measureStartLevel">測定開始時の残量（％）</label>
+      <input id="measureStartLevel" type="number" min="0" max="100" step="1" inputmode="numeric" placeholder="例：42">
+    </div>
+    <div>
+      <label for="measureEndLevel">測定終了時の残量（％）</label>
+      <input id="measureEndLevel" type="number" min="0" max="100" step="1" inputmode="numeric" placeholder="例：47">
+    </div>
+  </div>
+  <p id="measureElapsed" class="note" style="margin-top:10px">測定時間：まだ測定していません</p>
+  <button class="primary" id="measureStart">測定スタート</button>
+  <button class="secondary" id="measureFinish">測定終了・予測に反映</button>
+  <p id="measureResult" class="note" style="margin-top:10px">測定は5〜10分程度がおすすめです。測定中は充電器をつないだままにしてください。</p>
+</section>
+
+<section class="card">
+  <h2>🌿 予測をもう少し正確にするには</h2>
+  <ul>
+    <li>充電を始めたときの残量を入力します。</li>
+    <li>5〜10分ほど充電して、残量が何％増えたか確認します。</li>
+    <li>増えた％を経過分数で割り、「1分で増える量」に入力します。</li>
+  </ul>
+  <p class="note" style="margin-top:10px">充電速度は残量・温度・充電器などで変わるため、表示時間は目安です。</p>
+</section>
+
+<section class="alert">
+  <strong>試作版について</strong><br>
+  スマホのブラウザによっては、Webアプリから残量を自動取得できません。その場合は上の欄に手入力してください。このアプリは充電を制御したり、バッテリーを直接保護したりするものではありません。
+</section>
+<footer>こぐまとバッテリーの庭 · 試作版<br>入力した値はこの画面内で計算し、送信しません。</footer>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+let battery=null;
+function fmtMinutes(min){
+ if(!Number.isFinite(min)) return "計算できません";
+ if(min<=0) return "到達済み";
+ min=Math.ceil(min);
+ const h=Math.floor(min/60), m=min%60;
+ if(h===0) return `約${m}分`;
+ if(m===0) return `約${h}時間`;
+ return `約${h}時間${m}分`;
+}
+function calculate(){
+ const level=Number($("level").value), rate=Number($("rate").value), target=Number($("target").value);
+ if($("level").value===""||!Number.isFinite(level)||level<0||level>100){alert("残量は0〜100％で入力してください。");return}
+ if($("target").value===""||!Number.isFinite(target)||target<1||target>100){alert("目標残量は1〜100％で入力してください。");return}
+ if($("rate").value===""||!Number.isFinite(rate)||rate<=0||rate>10){alert("1分で増える量を0より大きく入力してください。");return}
+ const remaining=Math.max(0,target-level);
+ $("shownLevel").textContent=String(Math.round(level));
+ $("remainingPct").textContent=`${remaining}%`;
+ $("fill").style.width=`${Math.min(100,Math.max(0,level/target*100))}%`;
+ $("time").textContent=fmtMinutes(remaining/rate);
+ $("confidence").textContent=level>=target?"目標の残量に到達しています":`入力した充電速度（約${rate}%／分）から計算した目安`;
+ $("status").textContent=battery && battery.charging ? "充電中 · 自動取得に対応しています" : "現在の残量";
+}
+async function readBattery(){
+ const msg=$("autoMessage");
+ if(!("getBattery" in navigator)){
+  msg.classList.remove("hidden");
+  msg.textContent="このブラウザでは残量の自動取得に対応していないようです。残量を手入力してお使いください。";
+  return;
+ }
+ try{
+  battery=await navigator.getBattery();
+  const level=Math.round(battery.level*100);
+  $("level").value=level;
+  $("status").textContent=battery.charging?"充電中 · 残量を自動取得しました":"残量を自動取得しました";
+  msg.classList.remove("hidden");
+  msg.textContent="残量を読み取りました。充電速度は一定ではないため、予測には実際の増加量を入力するのがおすすめです。";
+  calculate();
+  battery.addEventListener("levelchange",()=>{
+    $("level").value=Math.round(battery.level*100);
+    calculate();
+  });
+  battery.addEventListener("chargingchange",calculate);
+ }catch(e){
+  msg.classList.remove("hidden");
+  msg.textContent="残量を自動取得できませんでした。手入力でお使いください。";
+ }
+}
+
+let measureStartedAt = null;
+function setMeasureResult(message, isError=false){
+  const el=$("measureResult");
+  el.textContent=message;
+  el.style.color=isError?"#a65b4e":"var(--muted)";
+}
+$("measureStart").addEventListener("click",()=>{
+  const level=Number($("level").value);
+  if($("level").value===""||!Number.isFinite(level)||level<0||level>100){
+    alert("まず現在の残量を0〜100％で入力してください。"); return;
+  }
+  measureStartedAt=Date.now();
+  $("measureStartLevel").value=Math.round(level);
+  $("measureEndLevel").value="";
+  $("measureElapsed").textContent="測定時間：測定中です。5〜10分ほどお待ちください。";
+  setMeasureResult("測定を開始しました。充電器をつないだまま、普段どおりの状態でお待ちください。");
+});
+$("measureFinish").addEventListener("click",()=>{
+  if(!measureStartedAt){
+    setMeasureResult("先に「測定スタート」を押してください。",true); return;
+  }
+  const elapsed=(Date.now()-measureStartedAt)/60000;
+  const start=Number($("measureStartLevel").value);
+  const end=Number($("measureEndLevel").value);
+  if($("measureEndLevel").value===""||!Number.isFinite(end)||end<0||end>100){
+    setMeasureResult("測定終了時の残量を0〜100％で入力してください。",true); return;
+  }
+  if(end<=start){
+    setMeasureResult("残量が増えていないため、充電速度を計算できません。充電器や接続を確認して、もう一度測定してください。",true);
+    $("measureElapsed").textContent=`測定時間：約${Math.max(1,Math.round(elapsed))}分`;
+    return;
+  }
+  if(elapsed<2){
+    setMeasureResult("測定時間が短すぎます。できれば5〜10分ほど測定してから、もう一度終了してください。",true);
+    $("measureElapsed").textContent=`測定時間：約${Math.max(1,Math.round(elapsed))}分`;
+    return;
+  }
+  const rate=(end-start)/elapsed;
+  $("rate").value=rate.toFixed(2);
+  $("level").value=end;
+  $("measureElapsed").textContent=`測定時間：約${Math.round(elapsed)}分（${start}％ → ${end}％）`;
+  measureStartedAt=null;
+  calculate();
+  setMeasureResult(`測定できました。実測の充電速度は約${rate.toFixed(2)}％／分です。この値を使って90％までの時間を予測します。充電速度は途中で変わるため、あくまで目安です。`);
+});
+
+$("calc").addEventListener("click",calculate);
+$("refresh").addEventListener("click",readBattery);
+$("level").addEventListener("input",calculate);
+$("rate").addEventListener("input",calculate);
+$("target").addEventListener("input",calculate);
+calculate();
+readBattery();
+</script>
+</body>
+</html>
